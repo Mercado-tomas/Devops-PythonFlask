@@ -1,0 +1,113 @@
+pipeline {
+    agent any
+
+    environment {
+        CARPETA = '/var/lib/jenkins/app-Python-Flask-Jenkins'
+        VENV = "${CARPETA}/appFlask-Pythonvenv"
+    }
+    
+    stages {
+        stage('Actualizar sistema') {
+            steps {
+                sh 'sudo apt-get -y update && sudo apt-get -y upgrade'
+            }
+        }
+        
+        stage('Instalar dependencias Python') {
+            steps {
+                sh '''
+                    for pkg in python3 python3-pip python3-venv; do
+                        if ! dpkg -l | grep -qw $pkg; then
+                            echo "Instalando $pkg..."
+                            sudo apt-get install -y $pkg
+                        else
+                            echo "$pkg ya está instalado."
+                        fi
+                    done
+                '''
+            }
+        }
+        
+        stage('Crear entorno virtual') {
+            steps {
+                sh '''
+                    if [ ! -d "${CARPETA}" ]; then
+                        echo "Creando carpeta del proyecto en ${CARPETA}..."
+                        mkdir -p "${CARPETA}"
+                    fi
+                    
+                    cd "${CARPETA}"
+                    
+                    if [ ! -d "${VENV}" ]; then
+                        echo "Creando entorno virtual en ${VENV}..."
+                        python3 -m venv "${VENV}"
+                    else
+                        echo "El entorno virtual ya existe."
+                    fi
+                    
+                    ls -l "${VENV}/bin"
+                '''
+            }
+        }
+        
+        stage('Instalar Flask y Wheel') {
+            steps {
+                // usamos punto ".", porque sh no reconoce comando source
+                sh '''
+                    echo "Instalando Flask y Wheel en el entorno virtual..."
+                    . "${VENV}/bin/activate"
+                    pip install --upgrade pip
+                    pip install Flask wheel
+                '''
+            }
+        }
+        
+        stage('Crear app.py') {
+            steps {
+                sh '''
+                    cat > "${CARPETA}/app.py" <<EOF
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return '<h1 style="color:blue">Hello Bootcampers RoxsOps!</h1>'
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0')
+EOF
+                '''
+            }
+        }
+        
+        
+        stage('Ejecutando python app.py'){
+            steps {
+                script {
+                    sh '''
+                    echo "Iniciando la aplicación Flask..."
+                    cd "${CARPETA}"
+                    
+                    # Activamos el entorno virtual
+                    . "${CARPETA}/appFlask-Pythonvenv/bin/activate"
+                    
+                    # Iniciamos la aplicación Flask
+                    echo "Ejecutamos la app.."
+                    echo "Dispondrá de 60 segundos de prueba, localhost:5000"
+                    timeout 60 python app.py
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo '¡Despliegue exitoso! La aplicación está corriendo en localhost:5000 🚀'
+        }
+        failure {
+            echo '❌ Hubo un error durante el despliegue.'
+        }
+    }
+}
+
