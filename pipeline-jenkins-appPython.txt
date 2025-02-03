@@ -84,6 +84,7 @@ EOF
         stage('Ejecutando python app.py'){
             steps {
                 script {
+                    
                     sh '''
                     echo "Iniciando la aplicación Flask..."
                     cd "${CARPETA}"
@@ -94,8 +95,9 @@ EOF
                     # Iniciamos la aplicación Flask
                     echo "Ejecutamos la app.."
                     echo "Dispondrá de 60 segundos de prueba, localhost:5000"
-                    timeout 60 python app.py
+                    timeout 60 python app.py || true
                     '''
+                    // agregamos || true, para que jenkins tome ok el cierre del timeout
                 }
             }
         }
